@@ -1,9 +1,46 @@
-from enum import Enum
-import random
 
-Cards = Enum("Cards",  ["NonLand", "GoodLand", "BadLand"])
+import sys
+from random import randrange
+from dataclasses import dataclass
 
+@dataclass
+class Deck:
+    NonLand: int = 0
+    GoodLand: int = 0
+    BadLand: int = 0
+    
+    def sum(self):
+        return self.NonLand + self.GoodLand + self.BadLand
 
+    def remove_land(self):
+        # remove a land from a hand
+        if self.BadLand >= 1:
+            self.BadLand -= 1
+        else:
+            self.GoodLand -= 1
+    
+    
+    def get_random_card(self,hand):
+        """ returns a random card from a deck
+        """
+        deck_size = self.sum()
+        which = randrange(deck_size)
+
+        if self.NonLand > which:
+            self.NonLand -= 1
+            hand.NonLand += 1
+            return
+        which -= self.NonLand
+        if self.GoodLand > which:
+            self.GoodLand -= 1
+            hand.GoodLand += 1
+            return
+        self.BadLand -= 1
+        hand.BadLand += 1
+    
+
+        
+    
 def should_mull(cards, hand_size):
     """ given a set of cards (represented as a dict),
     and hand_size representing the number of cards the player can keep,
@@ -13,115 +50,117 @@ def should_mull(cards, hand_size):
     This function will change the dictionary cards
     """
 
-    def remove_land(cards):
-        # remove a land from a hand
-        if cards[Cards.BadLand] >= 1:
-            cards[Cards.BadLand] -= 1
-        else:
-            cards[Cards.GoodLand] -= 1
             
                 
     if hand_size == 7:
-        return cards[Cards.NonLand] not in [2,3,4,5]
+        return cards.NonLand not in [2,3,4,5]
     if hand_size == 6:
         ## de 2 à 4 lands sur 6 cartes
         ## Donc nonLand de 2 à 4
-        if cards[Cards.NonLand] not in [2,3,4,5]:
+        if cards.NonLand not in [2,3,4,5]:
             return True
             
-        if cards[Cards.NonLand] > 3:
-            cards[Cards.NonLand] -= 1
+        if cards.NonLand > 3:
+            cards.NonLand -= 1
             # so either 4 nonlands and  2 lands
             # or 3 nonlands  and 3 lands
         else:
             # either 4 nonlands and  2 lands
             # or 3 nonlands  and 3 lands
-            remove_land(cards)
+            cards.remove_land()
         return False
 
     if hand_size == 5:
-        if cards[Cards.NonLand] in [0,6,7]:
+        if cards.NonLand in [0,6,7]:
             return True
-        if cards[Cards.NonLand] > 3:
+        if cards.NonLand > 3:
             # 4 or 5
-            cards[Cards.NonLand] -= 2
-        elif cards[Cards.NonLand] == 3:
+            cards.NonLand -= 2
+        elif cards.NonLand == 3:
             # 3 nonlands, 4 lands, we bottom 1 spell, 1 nonland
-            remove_land(cards)
-            cards[Cards.NonLand] -= 1
+            cards.remove_land()
+            cards.NonLand -= 1
         else:
             # 1 nonlands, 6 lands
             # 2 nonlands, 5 lands
             # we bottom 2 lands
-            remove_land(cards)
-            remove_land(cards)
+            cards.remove_land()
+            cards.remove_land()
         return False
 
-    if hand_size == 4:
-        # no mull possible
-        if cards[Cards.NonLand] > 3:
-            cards[Cards.NonLand] -= 3
-        elif cards[Cards.NonLand] == 3:
-            cards[Cards.NonLand] -= 2
-            remove_land(cards)
-        elif cards[Cards.NonLand] == 2:
-            cards[Cards.NonLand] -= 1
-            remove_land(cards)
-            remove_land(cards)
-        else:
-            remove_land(cards)
-            remove_land(cards)
-            remove_land(cards)
-        return False
-        
-
+    # hand_size == 4:
+    # no mull possible
+    if cards.NonLand > 3:
+        cards.NonLand -= 3
+    elif cards.NonLand == 3:
+        cards.NonLand -= 2
+        cards.remove_land()
+    elif cards.NonLand == 2:
+        cards.NonLand -= 1
+        cards.remove_land()
+        cards.remove_land()
+    else:
+        cards.remove_land()
+        cards.remove_land()
+        cards.remove_land()
+    return False
 
 def enough(target_good, target_other, good_lands, total_lands = 25, N = 200000):
+    deck = Deck()
+    cards = Deck()
+    lands_in_play = Deck()
 
     non_lands = 60 - total_lands
     bad_lands = total_lands - good_lands
 
     success = 0
     fail = 0
-    for i in range(N):
+    turns = target_good + target_other 
+
+    while N > 0 :
 
         total_cards = 7
         while True:
-            deck = [Cards.NonLand]*(non_lands) + [Cards.GoodLand]*good_lands + [Cards.BadLand]*bad_lands
-            random.shuffle(deck)
-            cards = { card_type : 0 for card_type in Cards }
+            deck.NonLand = non_lands
+            deck.GoodLand = good_lands
+            deck.BadLand = bad_lands
+
+            cards.NonLand = cards.GoodLand = cards.BadLand = 0
             for draw in range(7):
-                cards[deck.pop()] += 1
+                deck.get_random_card(cards)
 
             if not should_mull(cards, total_cards):
                 break
             total_cards -= 1
 
-        lands_in_play = { card_type : 0 for card_type in Cards }
+        #no need: lands_in_play.NonLand = 0
+        lands_in_play.GoodLand = 0
+        lands_in_play.BadLand = 0
     
-        if cards[Cards.GoodLand] > 0:
-            lands_in_play[Cards.GoodLand] += 1
-            cards[Cards.GoodLand] -= 1
-        elif cards[Cards.BadLand] > 0:
-            lands_in_play[Cards.BadLand] += 1
-            cards[Cards.BadLand] -= 1
+        if cards.GoodLand > 0:
+            lands_in_play.GoodLand += 1
+            cards.GoodLand -= 1
+        elif cards.BadLand > 0:
+            lands_in_play.BadLand += 1
+            cards.BadLand -= 1
             
-        turns = target_good + target_other - 1
-        for i in range(turns):
-            cards[deck.pop()] += 1
-            if cards[Cards.GoodLand] > 0:
-                lands_in_play[Cards.GoodLand] += 1
-                cards[Cards.GoodLand] -= 1
-            elif cards[Cards.BadLand] > 0:
-                lands_in_play[Cards.BadLand] += 1
-                cards[Cards.BadLand] -= 1
-        
-        if sum(lands_in_play.values()) == target_good + target_other:
-            if lands_in_play[Cards.GoodLand]  >= target_good:
+        for i in range(1, turns):
+            deck.get_random_card(cards)
+            if cards.GoodLand > 0:
+                lands_in_play.GoodLand += 1
+                cards.GoodLand -= 1
+            elif cards.BadLand > 0:
+                lands_in_play.BadLand += 1
+                cards.BadLand -= 1
+            else:
+                # no need to get the next cards if we don't have the right number of lands anyway                
+                break
+        if lands_in_play.sum() == turns:
+            N-=1
+            if lands_in_play.GoodLand  >= target_good:
                 success += 1
             else:
                 fail += 1
-            
     return success/(success+fail)
         
     
@@ -151,14 +190,16 @@ else:
     bad = int(cost)
 turns = good+bad
 
-for lands in range(8,args.lands+1):
-    rate = enough(good, bad, lands, args.lands, 2000)
-    if rate < 0.8:
+for lands in range(6,args.lands+1):
+    rate = enough(good, bad, lands, args.lands, 1000)
+    # if n = 1000 and p > 0.9 then by Chernoff's inequality
+    # P(rate < 0.89) < 10^(-18) so is negligible
+    if rate < 0.89:
         continue
-    rate = enough(good, bad, lands, args.lands, 100000)
+    rate = enough(good, bad, lands, args.lands, 5000000)
     if 100*rate > 89 + turns:
         break
-print(lands)
+print(lands, end="")
 
 
 
